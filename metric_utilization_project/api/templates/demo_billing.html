@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AWS Cost Chart</title>
+    <!-- Include Plotly.js library -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>AWS Cost Chart</h1>
+    
+    <!-- Container for the chart -->
+    <div id="chart-container"></div>
+
+    <!-- Fetch button to get the chart -->
+    <button id="fetch-button">Fetch AWS Cost Chart</button>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const fetchButton = document.getElementById("fetch-button");
+            const chartContainer = document.getElementById("chart-container");
+
+            fetchButton.addEventListener("click", async () => {
+                try {
+                    // Make an HTTP GET request to your Django API endpoint
+                    const response = await fetch("/api/demo-billing-data/");
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    // Extract chart data from the response
+                    const chartData = data.chart_data;
+
+                    // Prepare data for Plotly
+                    const services = [...new Set(chartData.map(item => item.Service))];
+                    const traces = services.map(service => {
+                        const serviceData = chartData.filter(item => item.Service === service);
+                        return {
+                            x: serviceData.map(item => item.Date),
+                            y: serviceData.map(item => item.Cost),
+                            name: service,
+                            type: 'bar',
+                        };
+                    });
+
+                    // Define chart layout
+                    const layout = {
+                        title: 'AWS Cost by Service Over Time',
+                        xaxis: { title: 'Date' },
+                        yaxis: { title: 'Cost (USD)' },
+                        barmode: 'stack'
+                    };
+
+                    // Create a Plotly chart
+                    Plotly.newPlot(chartContainer, traces, layout);
+                } catch (error) {
+                    console.error("Error fetching AWS cost chart:", error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

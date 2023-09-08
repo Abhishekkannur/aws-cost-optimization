@@ -1,0 +1,2 @@
+Region,DBInstanceIdentifier,Engine,DBInstanceClass,Status,InstanceType,DBConnectionsReadWrite,CPUUtilization,Storage
+us-east-1,chatappdb,postgres,db.t3.micro,available,db.t3.micro,N/A,1000,20,3.2466497809943733,186.1171875

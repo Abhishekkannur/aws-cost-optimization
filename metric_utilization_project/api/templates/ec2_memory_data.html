@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<style>
+    /* styles.css */
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #fff;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    color: #333;
+    cursor: pointer;
+}
+#fetch-data:hover {
+    color: blue;
+    cursor: pointer; 
+    text-decoration: underline;
+}
+
+#data-display {
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    background-color: #fff;
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    white-space: pre-wrap;
+}
+
+</style>
+<html>
+<head>
+    <title>EC2 Data</title>
+</head>
+<body>
+    <div class="container">
+        <h1 id="fetch-data">Click to Fetch EC2 Data</h1>
+        <p>Click the link below to download the JSON file:</p>
+        <a id="download-link" href="/api/ec2_memory_data/" download="{{ dynamic_filename }}">Download JSON</a>
+        <div id = "data-display"> </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const fetchDataButton = document.getElementById("fetch-data");
+            const dataDisplay = document.getElementById("data-display");
+            const downloadLink = document.getElementById("download-link");
+        
+            fetchDataButton.addEventListener("click", async () => {
+                try {
+                    const response = await fetch("/api/ec2_memory_data/");
+                    const jsonData = await response.json();
+                    
+                    // Format the JSON data for display
+                    const formattedJsonData = JSON.stringify(jsonData, null, 4);
+                    
+                    // Update the display and the download link
+                    dataDisplay.textContent = formattedJsonData;
+                    const blob = new Blob([formattedJsonData], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    downloadLink.href = url;
+                    downloadLink.style.display = "block";
+                } catch (error) {
+                    console.error("Error fetching EC2 data:", error);
+                    dataDisplay.textContent = "Error fetching EC2 data.";
+                }
+            });
+        });
+    </script>
+</body>
+</html>
