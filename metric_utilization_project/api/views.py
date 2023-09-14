@@ -63,7 +63,7 @@ class EC2_instances_list(APIView):
 def get_ec2_data(request):
     return render(request,'ec2_memory_data.html')
 class EC2_Memory_utilization(APIView):
-     def get(self,request):
+     def get(self, request):
         all_utilization_info = []
 
         regions = [region['RegionName'] for region in boto3.client('ec2').describe_regions()['Regions']]
@@ -82,8 +82,9 @@ class EC2_Memory_utilization(APIView):
                     cloudwatch_client = boto3.client('cloudwatch', region_name=region_name)
 
                     end_time = datetime.utcnow()
-                    start_time = end_time - timedelta(days=30)  
+                    start_time = end_time - timedelta(days=30)
 
+                    # Query for memory utilization
                     response = cloudwatch_client.get_metric_data(
                         MetricDataQueries=[
                             {
@@ -108,33 +109,73 @@ class EC2_Memory_utilization(APIView):
                         StartTime=start_time,
                         EndTime=end_time,
                     )
+
+                    # Query for CPU utilization
                     cpu_response = cloudwatch_client.get_metric_data(
-                    MetricDataQueries=[
-                        {
-                            'Id': 'cpu_utilization',
-                            'MetricStat': {
-                                'Metric': {
-                                    'Namespace': 'AWS/EC2',
-                                    'MetricName': 'CPUUtilization',
-                                    'Dimensions': [
-                                        {
-                                            'Name': 'InstanceId',
-                                            'Value': instance_id
-                                        },
-                                    ]
+                        MetricDataQueries=[
+                            {
+                                'Id': 'cpu_utilization',
+                                'MetricStat': {
+                                    'Metric': {
+                                        'Namespace': 'AWS/EC2',
+                                        'MetricName': 'CPUUtilization',
+                                        'Dimensions': [
+                                            {
+                                                'Name': 'InstanceId',
+                                                'Value': instance_id
+                                            },
+                                        ]
+                                    },
+                                    'Period': 3600,
+                                    'Stat': 'Average',
                                 },
-                                'Period': 3600,
-                                'Stat': 'Average',
+                                'ReturnData': True,
                             },
-                            'ReturnData': True,
-                        },
-                    ],
-                    StartTime=start_time,
-                    EndTime=end_time,
-                )
+                        ],
+                        StartTime=start_time,
+                        EndTime=end_time,
+                    )
+
+                    # Query for disk utilization
+                    disk_response = cloudwatch_client.get_metric_data(
+                        MetricDataQueries=[
+                            {
+                                'Id': 'disk_utilization',
+                                'MetricStat': {
+                                    'Metric': {
+                                        'Namespace': 'CWAgent',
+                                        'MetricName': 'disk_used_percent',
+                                        'Dimensions': [
+                                            {
+                                                'Name': 'InstanceId',
+                                                'Value': instance_id
+                                            },
+                                            {
+                                                'Name': 'device',
+                                                'Value': 'xvda1'
+                                            },
+                                            {
+                                                'Name': 'fstype',
+                                                'Value': 'ext4'
+                                            },
+                                            {
+                                                'Name': 'path',
+                                                'Value': '/'
+                                            }
+                                        ]
+                                    },
+                                    'Period': 3600,
+                                    'Stat': 'Average',
+                                },
+                                'ReturnData': True,
+                            },
+                        ],
+                        StartTime=start_time,
+                        EndTime=end_time,
+                    )
+
                     if 'MetricDataResults' in response:
                         for metric_result in response['MetricDataResults']:
-                            
                             if 'Values' in metric_result:
                                 utilization_info = metric_result['Values']
                                 if utilization_info:
@@ -143,9 +184,11 @@ class EC2_Memory_utilization(APIView):
                                         'instance_id': instance_id,
                                         'instance_type': instance_type,
                                         'state': state,
-                                        'average_memory_utilization': average_value,
-                                        'region':region_name,
+                                        'metric_type': 'memory',
+                                        'average_utilization': average_value,
+                                        'region': region_name,
                                     })
+
                     if 'MetricDataResults' in cpu_response:
                         for metric_result in cpu_response['MetricDataResults']:
                             if 'Values' in metric_result:
@@ -157,12 +200,27 @@ class EC2_Memory_utilization(APIView):
                                         'instance_type': instance_type,
                                         'state': state,
                                         'metric_type': 'cpu',
-                                        'average_cpu_utilization': average_value,
+                                        'average_utilization': average_value,
                                         'region': region_name,
                                     })
+                    
+                    if 'MetricDataResults' in disk_response:
+                        for metric_result in disk_response['MetricDataResults']:
+                            if 'Values' in metric_result:
+                                utilization_info = metric_result['Values']
+                                if utilization_info:
+                                    average_value = sum(utilization_info) / len(utilization_info)
+                                    all_utilization_info.append({
+                                        'instance_id': instance_id,
+                                        'instance_type': instance_type,
+                                        'state': state,
+                                        'metric_type': 'disk',
+                                        'average_utilization': average_value,
+                                        'region': region_name,
+                                    })
+
         response_json = json.dumps(all_utilization_info, indent=4)
 
-        
         response = HttpResponse(response_json, content_type='application/json')
 
        
@@ -1051,7 +1109,7 @@ class Get_WAF_Data(APIView):
                                 json_response.append(data_dict)
                     
         except Exception as e:
-            print(f'Error: {str(e)}')
+            return(f'Error: {str(e)}')
 
         # Serialize the JSON response list to a JSON string
         json_response_str = json.dumps(json_response, indent=4)
@@ -1061,6 +1119,88 @@ class Get_WAF_Data(APIView):
         response['Content-Disposition'] = f'attachment; filename="{dynamic_filename}"'
         return response
 
+def get_volume_utilized_data(request):
+    return render (request,'volume_data.html')
+def run_df_command(instance_id, ssm_client):
+    # Specify the command to run
+    commands = ['df -hT && lsblk -o NAME,KNAME,SIZE,MOUNTPOINT,TYPE']
+
+    # Send the command to the instance
+    response = ssm_client.send_command(
+        InstanceIds=[instance_id],
+        DocumentName='AWS-RunShellScript',
+        Parameters={'commands': commands},
+    )
+
+    # Wait for the command to complete
+    command_id = response['Command']['CommandId']
+    ssm_client.get_waiter('command_executed').wait(CommandId=command_id, InstanceId=instance_id)
+
+    # Retrieve the command output
+    output = ssm_client.get_command_invocation(CommandId=command_id, InstanceId=instance_id)
+    return output
+def parse_df_output(df_output):
+    parsed_data = {}
+    current_section = None
+
+    for line in df_output:
+        if line.startswith("Filesystem"):
+            current_section = "Filesystem"
+            parsed_data[current_section] = []
+            parsed_data[current_section].append(line.strip())  # Add the header
+        elif line.startswith("NAME"):
+            current_section = "NAME"
+            parsed_data[current_section] = []
+            parsed_data[current_section].append(line.strip())  # Add the header
+        elif current_section:
+            if line.strip():
+                parsed_data[current_section].append(line.strip())
+
+    return parsed_data
+
+class Get_Detailed_usage_Data(APIView):
+    def get(self,request):
+    # Initialize AWS clients
+        ssm_client = boto3.client('ssm')
+        ec2_client_global = boto3.client('ec2', region_name='us-east-1')  # You can choose any region to list all regions
+        regions = [region['RegionName'] for region in ec2_client_global.describe_regions()['Regions']]
+
+        response_data = []  # To store the response data
+
+        for region_name in regions:
+            ec2_client = boto3.client('ec2', region_name=region_name)
+
+            # Describe all instances in the current region
+            instances = ec2_client.describe_instances()
+
+            for reservation in instances['Reservations']:
+                for instance in reservation['Instances']:
+                    instance_id = instance['InstanceId']
+
+                    # Check if the instance is running
+                    if instance['State']['Name'] == 'running':
+                        output = run_df_command(instance_id, ssm_client)
+                        
+                        # Split the output into lines
+                        lines = output['StandardOutputContent'].strip().split('\n')
+                        
+                        instance_info = {
+                            "Region": region_name,
+                            "InstanceID": instance_id,
+                        }
+                        
+                        parsed_data = parse_df_output(lines)
+                        instance_info.update(parsed_data)
+                        
+                        response_data.append(instance_info)
+
+        json_response_str = json.dumps(response_data, indent=4)
+        response = HttpResponse(json_response_str, content_type='application/json')
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        dynamic_filename = f"EBS_data_{current_date}.json"
+        response['Content-Disposition'] = f'attachment; filename="{dynamic_filename}"'
+        return response
+    
                 
     # def upload_to_s3(self, file_path, s3_bucket, s3_key):
     #     s3_client = boto3.client('s3')
