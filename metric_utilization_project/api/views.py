@@ -300,10 +300,10 @@ class RDSData(APIView):
                 )
 
                 # Extract the average CPU and memory utilization from the responses
-                avg_cpu_utilization = cpu_response['Datapoints'][-1]['Average'] if 'Datapoints' in cpu_response else None
-                avg_memory_utilization = memory_response['Datapoints'][-1]['Average'] if 'Datapoints' in memory_response else None
-                avg_memory_GiB = avg_memory_utilization / (1024 ** 3)
-                user_memory=allocated_storage-avg_memory_GiB
+                avg_cpu_utilization = cpu_response['Datapoints'][-1]['Average'] if cpu_response.get('Datapoints') else None
+                avg_memory_utilization = memory_response['Datapoints'][-1]['Average'] if memory_response.get('Datapoints') else None
+                avg_memory_GiB = avg_memory_utilization / (1024 ** 3) if avg_memory_utilization else None
+                user_memory=allocated_storage-avg_memory_GiB if avg_memory_GiB else None
                 instance_data = {
                     'Region': region,
                     'DBInstanceIdentifier': db_identifier,
