@@ -1200,7 +1200,46 @@ class Get_Detailed_usage_Data(APIView):
         dynamic_filename = f"EBS_data_{current_date}.json"
         response['Content-Disposition'] = f'attachment; filename="{dynamic_filename}"'
         return response
-    
+def get_elastic_ip(request):
+    return render(request,'elastic_ip.html')
+
+class Get_Elastic_Ip(APIView):
+    def get(self,request):
+        
+            ec2 = boto3.client('ec2')
+
+            # Get a list of all AWS regions
+            regions = [region['RegionName'] for region in ec2.describe_regions()['Regions']]
+
+            elastic_ips_data = []
+
+            # Iterate through all regions
+            for region in regions:
+                # Create an EC2 client for the specific region
+                ec2_client = boto3.client('ec2', region_name=region)
+
+                # Use the describe_addresses method to get information about Elastic IPs in the region
+                response = ec2_client.describe_addresses()
+
+                # Iterate through the Elastic IPs in the region
+                for elastic_ip_info in response['Addresses']:
+                    allocation_id = elastic_ip_info['AllocationId']
+                    instance_id = elastic_ip_info.get('InstanceId', 'Unattached')
+
+                    # Append Elastic IP data to the list
+                    elastic_ips_data.append({
+                        'Region': region,
+                        'AllocationId': allocation_id,
+                        'InstanceId': instance_id
+                    })
+
+            # Return the Elastic IP data as a JSON response
+            json_response_str = json.dumps(elastic_ips_data, indent=4)
+            response = HttpResponse(json_response_str, content_type='application/json')
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            dynamic_filename = f"EBS_data_{current_date}.json"
+            response['Content-Disposition'] = f'attachment; filename="{dynamic_filename}"'
+            return response
                 
     # def upload_to_s3(self, file_path, s3_bucket, s3_key):
     #     s3_client = boto3.client('s3')
