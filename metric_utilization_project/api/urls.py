@@ -32,5 +32,7 @@ urlpatterns = [
     path('api/ebs-data/',views.Get_EBS_Data.as_view(),name='ebs-detail-data'),
     path('api/waf-acl-data/',views.Get_WAF_Data.as_view(),name='waf-detail-data'),
     path('waf-acl-data/',views.get_waf_data,name='waf-data'),
+    path('api/eip-data/',views.Get_Elastic_Ip.as_view(),name='eip-detail-data'),
+    path('eip-data/',views.get_elastic_ip,name='eipdata'),
 
 ]
