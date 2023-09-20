@@ -1237,7 +1237,7 @@ class Get_Elastic_Ip(APIView):
             json_response_str = json.dumps(elastic_ips_data, indent=4)
             response = HttpResponse(json_response_str, content_type='application/json')
             current_date = datetime.now().strftime("%Y-%m-%d")
-            dynamic_filename = f"EBS_data_{current_date}.json"
+            dynamic_filename = f"EIP_data_{current_date}.json"
             response['Content-Disposition'] = f'attachment; filename="{dynamic_filename}"'
             return response
                 
